@@ -29,5 +29,9 @@
     "eslint": "^2.5.3",
     "eslint-config-airbnb": "^6.2.0",
     "mocha": "^2.4.5"
+  },
+  "dependencies": {
+    "habitica": "^1.1.0",
+    "node-axosoft": "https://github.com/srajko/node-axosoft.git#3fe7df0975589ee5faa1e19a4bd595a059023c3d"
   }
 }
