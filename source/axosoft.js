@@ -1,37 +1,50 @@
 const AxosoftApi = require('node-axosoft');
 const _ = require('lodash');
 
-class Axosoft {
-  constructor(accountUrl, accessToken, userId) {
-    Object.assign(this, { userId });
+function promisify(apiFunction, ...args) {
+  return new Promise((resolve, reject) => {
+    args.push((error, response) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response);
+      }
+    });
+    apiFunction.apply(null, args);
+  });
+}
 
-    this.axosoftApi = new AxosoftApi(accountUrl, {
+class Axosoft {
+  constructor(accountUrl, accessToken) {
+    const axosoftApi = this.axosoftApi = new AxosoftApi(accountUrl, {
       access_token: accessToken
     });
+
+    // get the userId from the API
+    this.userIdPromise = promisify(axosoftApi.Me.get)
+      .then((response) => response.data.id);
   }
 
   getActionables() {
-    const { axosoftApi, userId } = this;
+    const { axosoftApi, userIdPromise } = this;
 
-    return new Promise((resolve, reject) => {
-      axosoftApi.Items.getItems({ assigned_to_id: userId }, (error, response) => {
-        if (error) {
-          reject(error);
-        } else {
-          const items = response.data;
-          const actionables = _(items)
-            .map((item) => ({
-              provider: 'axosoft',
-              id: `${item.item_type}-${item.id}`,
-              summary: item.name,
-              tags: { [item.release.id]: true },
-              workflow_step: item.workflow_step.id
-            }))
-            .value();
-          resolve(actionables);
-        }
+    // return items assigned to the user
+    return userIdPromise
+      .then((userId) => promisify(axosoftApi.Items.getItems, { assigned_to_id: userId }))
+      .then((response) => {
+        const items = response.data;
+        const actionables = _(items)
+          .map((item) => ({
+            provider: 'axosoft',
+            id: `${item.item_type}-${item.id}`,
+            summary: item.name,
+            tags: { [item.release.id]: true },
+            workflow_step: item.workflow_step.id
+          }))
+          .value();
+
+        return actionables;
       });
-    });
   }
 }
 
